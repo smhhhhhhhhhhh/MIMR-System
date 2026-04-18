@@ -3,12 +3,12 @@
 #include <iostream>
 #include <vector>
 #include <unordered_map>
-#include <chrono>
 #include <sstream>
 #include <algorithm>
 #include <fstream>
-#include <format>
 #include <cmath>
+#include <ctime>
+#include <iomanip>
 
 using std::cout;
 using std::cin;
@@ -21,17 +21,17 @@ using json = nlohmann::json;
 // TOPIC METHODS
 // Get the value of days elapsed since last review
 int Topic::days_since_review() const {
-    std::istringstream ss{last_review_date};
-    std::chrono::year_month_day ymd;
+    std::tm tm = {};
+    std::istringstream ss(last_review_date);
+    ss >> std::get_time(&tm, "%Y-%m-%d");
 
-    if(!std::chrono::from_stream(ss, "%Y-%m-%d", ymd) || !ymd.ok())
-    return 0;
+    if (ss.fail()) return 0;
 
-    auto review_date = std::chrono::sys_days{ymd};
-    auto today = std::chrono::floor<std::chrono::days>(
-        std::chrono::system_clock::now());
-    
-    return static_cast<int>((today - review_date).count());
+    std::time_t review_time = std::mktime(&tm);
+    std::time_t now = std::time(nullptr);
+
+    double seconds = std::difftime(now, review_time);
+    return static_cast<int>(seconds / (60 * 60 * 24));
 }
 
 // Get the priority value of a topic
@@ -56,7 +56,9 @@ string StudyManager::generate_id() const {
             next_number = std::max(next_number, std::stoi(t.id.substr(pos + 1)));
         }
     }
-    return std::format("MIMR-T{:03d}", next_number+1);
+    std::ostringstream oss;
+    oss << "MIMR-T" << std::setw(3) << std::setfill('0') << (next_number + 1);
+    return oss.str();
 }
 
 // Topic addition
@@ -66,6 +68,17 @@ void StudyManager::add_topic(const std::string& name, const std::string& categor
     Topic topic = {new_id, name, category, mastery, difficulty, last_review_date};
     topics.push_back(topic);         
 }   
+
+// Get the date today in Y-m-d format
+string StudyManager::get_date_today() const {
+    std::time_t now = std::time(nullptr);
+    std::tm* tm = std::localtime(&now);
+
+    char buffer[11];
+    std::strftime(buffer, sizeof(buffer), "%Y-%m-%d", tm);
+
+    return string(buffer);
+}
 
 // Review queue generation
 vector<Topic> StudyManager::generate_queue(int limit) const {
@@ -91,9 +104,7 @@ bool StudyManager::update_mastery(const std::string& topic_id, int new_mastery) 
     for(Topic& topic : topics) {
         if(topic.id == topic_id) {
             topic.mastery = new_mastery;
-            topic.last_review_date = std::format("{:%Y-%m-%d}",
-                std::chrono::floor<std::chrono::days>(
-                std::chrono::system_clock::now()));
+            topic.last_review_date = topic.last_review_date = get_date_today();
             return true;
         }
     }

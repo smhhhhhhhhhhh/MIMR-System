@@ -35,6 +35,7 @@ struct StudyManager {
 
     void add_topic(const std::string& name, const std::string& category, int mastery,
                    int difficulty, const std::string& last_review_date);
+    std::string get_date_today() const;
 
     std::vector<Topic> generate_queue(int limit = 10) const;
     bool update_mastery(const std::string& topic_id, int new_mastery);
